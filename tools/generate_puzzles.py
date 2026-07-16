@@ -79,7 +79,7 @@ def main():
 
     # ── Step 3: Build vocabulary ──
     print("\n[4/5] Building vocabulary...")
-    vocab, vocab_indices = _build_vocabulary(word_to_index, max_words=10000)
+    vocab, vocab_indices = _build_vocabulary(word_to_index, set(valid_targets), max_words=10000)
     print(f"  Vocabulary size: {len(vocab)} words")
 
     # Pre-compute normalized vocab vectors for fast cosine similarity
@@ -115,18 +115,16 @@ def main():
 
         # Assign ranks
         puzzle_data = {}
-        rank = 0
+        # Ensure the target word is always rank 1
+        puzzle_data[target] = 1
+
+        rank = 1
         for idx in sorted_indices:
             word = vocab[idx]
-            rank += 1
             if word == target:
-                puzzle_data[word] = 1
-            else:
-                puzzle_data[word] = rank
-
-        # Ensure target is included with rank 1
-        if target not in puzzle_data:
-            puzzle_data[target] = 1
+                continue
+            rank += 1
+            puzzle_data[word] = rank
 
         # Write JSON
         with open(output_path, "w") as f:
@@ -188,11 +186,12 @@ def _load_glove(path):
     return word_to_index, vectors
 
 
-def _build_vocabulary(word_to_index, max_words=10000):
+def _build_vocabulary(word_to_index, target_words_set, max_words=10000):
     """
     Build a clean vocabulary from the GloVe word list.
     Filters out: numbers, single chars, words with special characters,
     very short words, and common stopwords.
+    Always includes any words that are valid target words.
     Returns (list of words, list of their indices in the vectors matrix).
     """
     stopwords = {
@@ -214,14 +213,23 @@ def _build_vocabulary(word_to_index, max_words=10000):
     vocab = []
     indices = []
     seen = set()
+
     for word, idx in word_to_index.items():
+        w_lower = word.lower()
+        # Always preserve valid targets to make them guessable and rankable
+        if w_lower in target_words_set:
+            if w_lower not in seen:
+                seen.add(w_lower)
+                vocab.append(w_lower)
+                indices.append(idx)
+            continue
+
         if len(word) < 3:
             continue
         if not word.isalpha():
             continue
         if word.isupper():
             continue
-        w_lower = word.lower()
         if w_lower in stopwords:
             continue
         if w_lower in seen:
