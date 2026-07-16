@@ -1,0 +1,10 @@
+{
+  "name": "Wordsy",
+  "short_name": "Wordsy",
+  "description": "A semantic word-guessing game. Guess the secret word by context.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#060608",
+  "theme_color": "#E2196C",
+  "icons": []
+}
