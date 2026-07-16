@@ -1,12 +1,13 @@
 /* ============================================
    WORDSY — UI Manager
    Handles all DOM rendering, animations,
-   modals, toasts, and confetti.
+   modals, toasts, confetti, and mode switching tabs.
    ============================================ */
 
 const WordsyUI = (() => {
     // Cached DOM references
     const els = {};
+    let currentStatsTab = 'daily';
 
     function init() {
         // Cache all DOM elements
@@ -32,6 +33,16 @@ const WordsyUI = (() => {
         els.toastText = document.getElementById('toast-text');
         els.confettiCanvas = document.getElementById('confetti-canvas');
 
+        // Mode switch elements
+        els.modeDaily = document.getElementById('mode-daily');
+        els.modePractice = document.getElementById('mode-practice');
+        els.btnNewPractice = document.getElementById('btn-new-practice');
+        els.btnNextPracticeWin = document.getElementById('btn-next-practice-win');
+
+        // Stats tabs
+        els.statsTabDaily = document.getElementById('stats-tab-daily');
+        els.statsTabPractice = document.getElementById('stats-tab-practice');
+
         // Stats display
         els.statPlayed = document.getElementById('stat-played');
         els.statWon = document.getElementById('stat-won');
@@ -48,7 +59,7 @@ const WordsyUI = (() => {
         // Open modals
         els.btnHowToPlay.addEventListener('click', () => showModal('modal-how-to-play'));
         els.btnStats.addEventListener('click', () => {
-            refreshStatsDisplay();
+            refreshStatsDisplay('daily'); // default to daily when opening stats
             showModal('modal-stats');
         });
 
@@ -74,12 +85,39 @@ const WordsyUI = (() => {
 
         // Win overlay close
         els.btnCloseWin.addEventListener('click', hideWinOverlay);
+
+        // Stats tab toggles
+        if (els.statsTabDaily && els.statsTabPractice) {
+            els.statsTabDaily.addEventListener('click', () => refreshStatsDisplay('daily'));
+            els.statsTabPractice.addEventListener('click', () => refreshStatsDisplay('practice'));
+        }
+
+        // Game mode selector buttons
+        if (els.modeDaily && els.modePractice) {
+            els.modeDaily.addEventListener('click', () => WordsyGame.switchMode('daily'));
+            els.modePractice.addEventListener('click', () => WordsyGame.switchMode('practice'));
+        }
+    }
+
+    // ── Mode Styling Helper ──
+
+    function updateModeUI(mode) {
+        if (mode === 'daily') {
+            els.modeDaily.classList.add('active');
+            els.modePractice.classList.remove('active');
+            els.btnNewPractice.classList.add('hidden');
+        } else {
+            els.modeDaily.classList.remove('active');
+            els.modePractice.classList.add('active');
+            els.btnNewPractice.classList.remove('hidden');
+        }
     }
 
     // ── Puzzle & Guess Count ──
 
-    function setPuzzleNumber(num) {
-        els.puzzleNumber.textContent = `PUZZLE #${num}`;
+    function setPuzzleNumber(num, mode = 'daily') {
+        const suffix = mode === 'daily' ? '' : ' (PRACTICE)';
+        els.puzzleNumber.textContent = `PUZZLE #${num}${suffix}`;
     }
 
     function updateGuessCount(count) {
@@ -88,7 +126,7 @@ const WordsyUI = (() => {
 
     function updateHintCount(remaining) {
         els.hintCount.textContent = `(${remaining})`;
-        if (remaining <= 0) els.btnHint.disabled = true;
+        els.btnHint.disabled = remaining <= 0;
     }
 
     // ── Color & Bar Helpers ──
@@ -130,7 +168,7 @@ const WordsyUI = (() => {
     function addGuessRow(guess, allGuesses) {
         renderGuessList(allGuesses);
 
-        // Scroll the newly added guess into view
+        // Scroll the newly added guess into view (confines to scroll container)
         const sorted = [...allGuesses].sort((a, b) => a.rank - b.rank);
         const index = sorted.findIndex(g => g.word === guess.word);
         if (index >= 0 && els.guessList.children[index]) {
@@ -200,13 +238,21 @@ const WordsyUI = (() => {
 
     // ── Win Overlay ──
 
-    function showWinOverlay(targetWord, guessCount) {
+    function showWinOverlay(targetWord, guessCount, mode = 'daily') {
         els.winWord.textContent = targetWord;
         els.winSubtitle.textContent = `You found it in ${guessCount} guess${guessCount !== 1 ? 'es' : ''}!`;
         els.winOverlay.classList.add('visible');
+
+        if (mode === 'practice') {
+            els.btnNextPracticeWin.classList.remove('hidden');
+        } else {
+            els.btnNextPracticeWin.classList.add('hidden');
+        }
+
         _launchConfetti();
     }
 
+    // Expose close helper for next-button clicks
     function hideWinOverlay() {
         els.winOverlay.classList.remove('visible');
     }
@@ -227,14 +273,28 @@ const WordsyUI = (() => {
 
     // ── Stats Display ──
 
-    function refreshStatsDisplay() {
-        const stats = WordsyStats.load();
+    function refreshStatsDisplay(mode = currentStatsTab) {
+        currentStatsTab = mode;
+        const stats = WordsyStats.load(mode);
 
         els.statPlayed.textContent = stats.played;
         els.statWon.textContent = stats.won;
         els.statStreak.textContent = stats.streak;
         els.statMaxStreak.textContent = stats.maxStreak;
-        els.statAvgGuesses.textContent = WordsyStats.getAvgGuesses();
+        els.statAvgGuesses.textContent = WordsyStats.getAvgGuesses(mode);
+
+        // Manage active tab states
+        if (mode === 'daily') {
+            els.statsTabDaily.classList.add('active');
+            els.statsTabPractice.classList.remove('active');
+            document.getElementById('stat-card-streak').classList.remove('hidden');
+            document.getElementById('stat-card-max-streak').classList.remove('hidden');
+        } else {
+            els.statsTabDaily.classList.remove('active');
+            els.statsTabPractice.classList.add('active');
+            document.getElementById('stat-card-streak').classList.add('hidden');
+            document.getElementById('stat-card-max-streak').classList.add('hidden');
+        }
 
         // Distribution bars
         const maxDist = Math.max(...stats.distribution, 1);
@@ -248,8 +308,6 @@ const WordsyUI = (() => {
         });
     }
 
-    // ── Input Helpers ──
-
     function clearInput() {
         els.guessInput.value = '';
         els.guessInput.focus();
@@ -259,6 +317,12 @@ const WordsyUI = (() => {
         els.guessInput.disabled = true;
         els.btnSubmit.disabled = true;
         els.btnHint.disabled = true;
+    }
+
+    function enableInput() {
+        els.guessInput.disabled = false;
+        els.btnSubmit.disabled = false;
+        els.btnHint.disabled = false;
     }
 
     // ── Confetti ──
@@ -343,6 +407,8 @@ const WordsyUI = (() => {
         showToast,
         refreshStatsDisplay,
         clearInput,
-        disableInput
+        disableInput,
+        enableInput,
+        updateModeUI
     };
 })();

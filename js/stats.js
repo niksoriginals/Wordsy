@@ -1,11 +1,15 @@
 /* ============================================
    WORDSY — Statistics Manager
    Handles localStorage persistence, tracking,
-   and share text generation.
+   and share text generation for both Daily and
+   Practice modes.
    ============================================ */
 
 const WordsyStats = (() => {
-    const STORAGE_KEY = 'wordsy-stats';
+    const STORAGE_KEYS = {
+        daily: 'wordsy-stats',
+        practice: 'wordsy-stats-practice'
+    };
 
     const defaults = {
         played: 0,
@@ -18,9 +22,10 @@ const WordsyStats = (() => {
         history: {} // { puzzleNumber: { won, guesses, date } }
     };
 
-    function load() {
+    function load(mode = 'daily') {
+        const key = STORAGE_KEYS[mode] || STORAGE_KEYS.daily;
         try {
-            const raw = localStorage.getItem(STORAGE_KEY);
+            const raw = localStorage.getItem(key);
             if (!raw) return _clone(defaults);
             const parsed = JSON.parse(raw);
             return {
@@ -34,18 +39,20 @@ const WordsyStats = (() => {
         }
     }
 
-    function save(stats) {
+    function save(stats, mode = 'daily') {
+        const key = STORAGE_KEYS[mode] || STORAGE_KEYS.daily;
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+            localStorage.setItem(key, JSON.stringify(stats));
         } catch (e) {
-            console.warn('[Wordsy] Failed to save stats:', e);
+            console.warn(`[Wordsy] Failed to save ${mode} stats:`, e);
         }
     }
 
-    function recordWin(puzzleNumber, guessCount) {
-        const stats = load();
+    function recordWin(puzzleNumber, guessCount, mode = 'daily') {
+        const stats = load(mode);
 
-        // Prevent double-counting the same puzzle
+        // Prevent double-counting the same puzzle in daily, but in practice, maybe they can replay?
+        // Let's allow replay in practice mode but increment played/won or keep historical record.
         if (stats.history[puzzleNumber]?.won) return stats;
 
         stats.played++;
@@ -53,14 +60,20 @@ const WordsyStats = (() => {
         stats.totalGuesses += guessCount;
         stats.lastPuzzle = puzzleNumber;
 
-        // Streak: continues if the previous puzzle was also won
-        const prev = puzzleNumber - 1;
-        if (stats.history[prev]?.won || stats.played === 1) {
-            stats.streak++;
+        if (mode === 'daily') {
+            // Streak: continues if the previous puzzle was also won
+            const prev = puzzleNumber - 1;
+            if (stats.history[prev]?.won || stats.played === 1) {
+                stats.streak++;
+            } else {
+                stats.streak = 1;
+            }
+            stats.maxStreak = Math.max(stats.maxStreak, stats.streak);
         } else {
-            stats.streak = 1;
+            // No daily streak tracking for practice mode
+            stats.streak = 0;
+            stats.maxStreak = 0;
         }
-        stats.maxStreak = Math.max(stats.maxStreak, stats.streak);
 
         // Distribution buckets
         if (guessCount <= 10) stats.distribution[0]++;
@@ -74,17 +87,17 @@ const WordsyStats = (() => {
             date: new Date().toISOString().split('T')[0]
         };
 
-        save(stats);
+        save(stats, mode);
         return stats;
     }
 
-    function getAvgGuesses() {
-        const stats = load();
+    function getAvgGuesses(mode = 'daily') {
+        const stats = load(mode);
         if (stats.won === 0) return '—';
         return Math.round(stats.totalGuesses / stats.won);
     }
 
-    function generateShareText(puzzleNumber, guessCount, guesses) {
+    function generateShareText(puzzleNumber, guessCount, guesses, mode = 'daily') {
         let green = 0, yellow = 0, orange = 0, red = 0;
         guesses.forEach(g => {
             if (g.rank <= 100) green++;
@@ -93,13 +106,15 @@ const WordsyStats = (() => {
             else red++;
         });
 
+        const label = mode === 'daily' ? `Daily #${puzzleNumber}` : `Practice #${puzzleNumber}`;
+
         return [
-            `🔤 Wordsy #${puzzleNumber}`,
+            `🔤 Wordsy (${label})`,
             `Solved in ${guessCount} guess${guessCount !== 1 ? 'es' : ''}!`,
             ``,
             `🟢 ${green} | 🟡 ${yellow} | 🟠 ${orange} | 🔴 ${red}`,
             ``,
-            `https://niksoriginals.in/wordsy`
+            `https://Wordsy.niksoriginals.in`
         ].join('\n');
     }
 

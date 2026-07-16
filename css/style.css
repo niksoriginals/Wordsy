@@ -755,13 +755,13 @@ a {
 
 /* --- Stats Modal --- */
 .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    display: flex;
     gap: 8px;
     margin-bottom: 28px;
 }
 
 .stat-card {
+    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -978,3 +978,80 @@ a {
     cursor: not-allowed;
     transform: none;
 }
+
+/* --- Mode Switcher --- */
+.mode-switch {
+    display: flex;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 3px;
+    margin-bottom: 16px;
+    width: 100%;
+}
+
+.mode-btn {
+    flex: 1;
+    text-align: center;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+}
+
+.mode-btn.active {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.mode-btn:not(.active):hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+/* --- Stats Mode Selector --- */
+.stats-mode-selector {
+    display: flex;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 2px;
+    margin: -10px 0 20px 0;
+}
+
+.stats-tab {
+    flex: 1;
+    text-align: center;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+}
+
+.stats-tab.active {
+    background: var(--bg-card-hover);
+    border: 1px solid var(--border-hover);
+    color: var(--accent);
+}
+
+.stats-tab:not(.active):hover {
+    color: var(--text-primary);
+}
+
+/* Hidden utility */
+.hidden {
+    display: none !important;
+}
+
+/* Action buttons wrapper for input meta */
+.action-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
